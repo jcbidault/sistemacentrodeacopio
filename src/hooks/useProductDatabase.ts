@@ -26,6 +26,20 @@ export const useProductDatabase = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Obtener todos los productos
+  const getAllProducts = useCallback(async (): Promise<Product[]> => {
+    try {
+      const response = await fetch('/api/products');
+      if (!response.ok) {
+        throw new Error('Error al obtener productos');
+      }
+      return await response.json();
+    } catch (err) {
+      console.error('Error:', err);
+      return [];
+    }
+  }, []);
+
   // Buscar producto por código de barras
   const lookupProduct = useCallback(async (barcode: string): Promise<ProductLookupResult> => {
     setIsLoading(true);
@@ -175,6 +189,7 @@ export const useProductDatabase = () => {
   return {
     isLoading,
     error,
+    getAllProducts,
     lookupProduct,
     registerProduct,
     updateProduct,
