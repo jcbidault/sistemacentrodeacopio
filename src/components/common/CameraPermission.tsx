@@ -21,11 +21,11 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
     } else if (isDenied) {
       onDenied?.();
     }
-  }, [isGranted, isDenied]);
+  }, [isGranted, isDenied, onGranted, onDenied]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -35,56 +35,60 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
     return <>{children}</>;
   }
 
+  const handleRequestPermission = async () => {
+    // En iOS, necesitamos manejar el clic del usuario
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment'
+          } 
+        });
+        stream.getTracks().forEach(track => track.stop());
+        onGranted?.();
+      } catch (error) {
+        console.error('Error requesting camera permission:', error);
+        onDenied?.();
+      }
+    } else {
+      await requestPermission();
+    }
+  };
+
   return (
-    <div className="p-4 bg-white rounded-lg shadow-lg max-w-md mx-auto">
-      <div className="text-center">
-        <div className="mb-4">
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] px-4 py-8 text-center bg-gray-50">
+      <div className="max-w-md mx-auto">
+        <h1 className="text-3xl font-bold mb-6 text-gray-800">
+          Escáner de Productos
+        </h1>
+        
+        <div className="mb-8">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
+            className="w-24 h-24 mx-auto mb-6 text-gray-700"
+            fill="currentColor"
             viewBox="0 0 24 24"
-            stroke="currentColor"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-            />
+            <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm0-12c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {isDenied
-            ? 'Acceso a la cámara denegado'
-            : 'Se requiere acceso a la cámara'}
-        </h3>
-        <p className="text-sm text-gray-500 mb-4">
+
+        <h2 className="text-xl font-semibold mb-4 text-gray-800">
+          {isDenied ? 'Acceso a la cámara denegado' : 'Se requiere acceso a la cámara'}
+        </h2>
+        
+        <p className="mb-6 text-gray-600">
           {isDenied
             ? 'Por favor, habilite el acceso a la cámara en la configuración de su navegador para continuar.'
             : 'Para escanear códigos de barras, necesitamos acceder a la cámara de su dispositivo.'}
         </p>
-        {!isDenied && (
-          <button
-            onClick={requestPermission}
-            className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Permitir acceso
-          </button>
-        )}
-        {isDenied && (
-          <button
-            onClick={() => window.location.reload()}
-            className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Reintentar
-          </button>
-        )}
+        
+        <button
+          onClick={handleRequestPermission}
+          className="w-full px-6 py-3 text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200"
+        >
+          {isDenied ? 'Reintentar' : 'Permitir acceso a la cámara'}
+        </button>
       </div>
     </div>
   );

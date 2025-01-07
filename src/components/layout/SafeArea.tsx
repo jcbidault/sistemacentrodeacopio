@@ -8,14 +8,17 @@ interface SafeAreaProps {
 
 export const SafeArea: React.FC<SafeAreaProps> = ({
   children,
-  top = true,
-  bottom = true,
+  top = false,
+  bottom = false,
 }) => {
   return (
     <div
       className={`
         ${top ? 'pt-safe' : ''}
         ${bottom ? 'pb-safe' : ''}
+        min-h-screen
+        flex
+        flex-col
       `}
     >
       {children}

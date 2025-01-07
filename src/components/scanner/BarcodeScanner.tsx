@@ -1,21 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useZxing } from 'react-zxing';
 import { BarcodeFormat } from '@zxing/library';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
-import { useCameraZoom } from '../../hooks/useCameraZoom';
-import { useMotionDetection } from '../../hooks/useMotionDetection';
-import { usePowerSaving } from '../../hooks/usePowerSaving';
-import { useCameraResolution } from '../../hooks/useCameraResolution';
-import { useCodeFormats } from '../../hooks/useCodeFormats';
-import { useScanHistory } from '../../hooks/useScanHistory';
-import { CameraPermission } from '../common/CameraPermission';
-import { BatteryAlert } from '../common/BatteryAlert';
-import { ZoomControl } from './ZoomControl';
-import { StabilityIndicator } from './StabilityIndicator';
-import { PowerSavingControl } from './PowerSavingControl';
-import { ResolutionControl } from './ResolutionControl';
-import { CodeFormatControl } from './CodeFormatControl';
-import { ScanHistory } from './ScanHistory';
+import { LightBulbIcon } from '@heroicons/react/24/outline';
 
 interface BarcodeScannerProps {
   onResult: (result: { text: string; format: BarcodeFormat }) => void;
@@ -26,261 +13,153 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onResult,
   onError,
 }) => {
-  const [torchEnabled, setTorchEnabled] = useState(false);
-  const [isScanning, setIsScanning] = useState(true);
-  const haptics = useHapticFeedback();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
-  const stabilityTimeout = useRef<NodeJS.Timeout>();
+  const haptics = useHapticFeedback();
 
-  const { isSupported: isMotionSupported, isStable } = useMotionDetection();
-  const {
-    powerSavingMode,
-    setMode,
-    isAutoMode,
-    toggleAutoMode,
-    currentConfig,
-    estimatedSavings,
-    isBatterySupported,
-  } = usePowerSaving();
-
-  const {
-    capabilities,
-    selectedResolution,
-    setResolution,
-    estimatePerformanceImpact,
-    isSupported: isResolutionSupported,
-  } = useCameraResolution(videoTrack);
-
-  const {
-    activeType,
-    setActiveType,
-    getActiveFormats,
-    lastDetectedFormat,
-    setLastDetectedFormat,
-    getFormatDescription,
-    identifyCodeType,
-  } = useCodeFormats();
-
-  const {
-    groupedHistory,
-    addScan,
-    removeScan,
-    clearHistory,
-    copyToClipboard,
-    exportHistory,
-  } = useScanHistory();
-
-  useEffect(() => {
-    if (!capabilities?.resolutions.length) return;
-
-    const optimalResolutions = {
-      off: capabilities.resolutions[capabilities.resolutions.length - 1],
-      eco: capabilities.resolutions[Math.floor(capabilities.resolutions.length / 2)],
-      critical: capabilities.resolutions[0],
-    };
-
-    setResolution(optimalResolutions[powerSavingMode]);
-  }, [powerSavingMode, capabilities]);
-
-  const handleResult = useCallback((result: { text: string; format: BarcodeFormat }) => {
-    if (isStable || !isMotionSupported) {
-      haptics.success();
-      setLastDetectedFormat(result.format);
-      
-      // Agregar al historial
-      addScan({
-        text: result.text,
-        format: result.format,
-        type: identifyCodeType(result.format),
-      });
-      
-      onResult(result);
-    }
-  }, [onResult, isStable, isMotionSupported, setLastDetectedFormat, addScan, identifyCodeType]);
+  const handleResult = useCallback((result: { getText: () => string; getBarcodeFormat: () => BarcodeFormat }) => {
+    haptics.success();
+    onResult({
+      text: result.getText(),
+      format: result.getBarcodeFormat()
+    });
+  }, [haptics, onResult]);
 
   const handleError = useCallback((error: Error) => {
-    haptics.error();
-    onError?.(error);
+    console.error('Camera error:', error);
+    if (onError) onError(error);
   }, [onError]);
-
-  useEffect(() => {
-    if (stabilityTimeout.current) {
-      clearTimeout(stabilityTimeout.current);
-    }
-
-    if (!isStable && isMotionSupported) {
-      stabilityTimeout.current = setTimeout(() => {
-        setIsScanning(false);
-      }, 500);
-    } else {
-      setIsScanning(true);
-    }
-
-    return () => {
-      if (stabilityTimeout.current) {
-        clearTimeout(stabilityTimeout.current);
-      }
-    };
-  }, [isStable, isMotionSupported]);
 
   const {
     ref,
-    torch,
-    isStarted,
-    start,
-    stop,
-    pause,
-    resume,
+    torch: { isOn: isTorchOn, isAvailable: isTorchAvailable, on: turnTorchOn, off: turnTorchOff },
   } = useZxing({
-    onDecodeResult: handleResult,
-    onError: handleError,
     constraints: {
-      facingMode: 'environment',
-      width: selectedResolution.width,
-      height: selectedResolution.height,
-      frameRate: { ideal: currentConfig.frameRate },
+      video: {
+        facingMode: { exact: "environment" },
+        width: { min: 1280, ideal: 1920, max: 2560 },
+        height: { min: 720, ideal: 1080, max: 1440 },
+        aspectRatio: { ideal: 16/9 },
+        focusMode: "continuous"
+      }
     },
-    paused: !isScanning,
-    formats: getActiveFormats(),
+    timeBetweenDecodingAttempts: 150,
+    formats: [
+      BarcodeFormat.QR_CODE,
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+    ],
+    onResult: handleResult,
+    onError: handleError,
   });
 
   useEffect(() => {
-    if (videoRef.current) {
-      ref(videoRef.current);
-      const stream = videoRef.current.srcObject as MediaStream;
-      if (stream) {
-        const track = stream.getVideoTracks()[0];
-        setVideoTrack(track);
+    const configureVideoTrack = async () => {
+      if (ref.current?.srcObject instanceof MediaStream) {
+        const track = ref.current.srcObject.getVideoTracks()[0];
+        if (track) {
+          setVideoTrack(track);
+          
+          try {
+            const capabilities = track.getCapabilities();
+            const settings: MediaTrackConstraints = {};
 
-        track.applyConstraints({
-          width: selectedResolution.width,
-          height: selectedResolution.height,
-          frameRate: currentConfig.frameRate,
-        }).catch(console.error);
+            if (capabilities.focusMode?.includes('continuous')) {
+              settings.focusMode = 'continuous';
+            }
+
+            if (capabilities.whiteBalanceMode?.includes('continuous')) {
+              settings.whiteBalanceMode = 'continuous';
+            }
+
+            if (capabilities.exposureMode?.includes('continuous')) {
+              settings.exposureMode = 'continuous';
+            }
+
+            if (Object.keys(settings).length > 0) {
+              await track.applyConstraints(settings);
+            }
+          } catch (err) {
+            console.warn('Camera settings could not be applied:', err);
+          }
+        }
       }
-    }
-  }, [ref, isStarted, currentConfig, selectedResolution]);
+    };
 
-  const {
-    zoomLevel,
-    setZoom,
-    isZoomSupported,
-  } = useCameraZoom(videoTrack);
+    configureVideoTrack();
 
-  const handleZoomIn = useCallback(() => {
-    setZoom(zoomLevel + 0.1);
-  }, [zoomLevel, setZoom]);
-
-  const handleZoomOut = useCallback(() => {
-    setZoom(zoomLevel - 0.1);
-  }, [zoomLevel, setZoom]);
+    return () => {
+      if (videoTrack) {
+        videoTrack.stop();
+        setVideoTrack(null);
+      }
+    };
+  }, [ref]);
 
   const toggleTorch = useCallback(() => {
-    if (currentConfig.torch) {
-      setTorchEnabled(!torchEnabled);
-      torch.toggle();
-      haptics.light();
+    if (isTorchOn) {
+      turnTorchOff();
+    } else {
+      turnTorchOn();
     }
-  }, [torchEnabled, torch, currentConfig.torch]);
+  }, [isTorchOn, turnTorchOff, turnTorchOn]);
 
   return (
-    <CameraPermission
-      onGranted={start}
-      onDenied={stop}
-    >
-      <div className="scanner-container relative">
-        <video ref={videoRef} className="w-full h-full object-cover" />
-        
-        <StabilityIndicator
-          isStable={isStable}
-          isSupported={isMotionSupported}
-        />
+    <div className="relative w-full h-full bg-black">
+      {/* Camera View */}
+      <video
+        ref={ref}
+        className="w-full h-full object-cover"
+      />
 
-        <PowerSavingControl
-          mode={powerSavingMode}
-          isAutoMode={isAutoMode}
-          onModeChange={setMode}
-          onAutoModeToggle={toggleAutoMode}
-          estimatedSavings={estimatedSavings}
-          isBatterySupported={isBatterySupported}
-        />
-
-        {capabilities && (
-          <ResolutionControl
-            resolutions={capabilities.resolutions}
-            currentResolution={selectedResolution}
-            onResolutionChange={setResolution}
-            performanceImpact={estimatePerformanceImpact()}
-            isSupported={isResolutionSupported}
-          />
-        )}
-
-        <CodeFormatControl
-          activeType={activeType}
-          onTypeChange={setActiveType}
-          lastDetectedFormat={lastDetectedFormat}
-          formatDescription={lastDetectedFormat ? getFormatDescription(lastDetectedFormat) : ''}
-        />
-
-        <ScanHistory
-          groupedHistory={groupedHistory}
-          onCopy={copyToClipboard}
-          onRemove={removeScan}
-          onClear={clearHistory}
-          onExport={exportHistory}
-        />
-
-        <div className="scanner-overlay">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`
-              w-64 h-64 border-2 border-white rounded-lg relative overflow-hidden
-              transition-all duration-300
-              ${!isScanning ? 'opacity-50' : 'opacity-100'}
-            `}>
-              <div className="absolute inset-0 border-[20px] border-white/30" />
-              <div className={`
-                absolute top-0 left-0 right-0 h-0.5 bg-blue-500
-                ${isScanning ? 'animate-scan' : ''}
-              `} />
-            </div>
+      {/* Scanning Overlay */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative w-64 h-64">
+          {/* Scanner Frame */}
+          <div className="absolute inset-0 border-2 border-white/50 rounded-lg">
+            {/* Corner Markers */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary-500 rounded-tl" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary-500 rounded-tr" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary-500 rounded-bl" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary-500 rounded-br" />
           </div>
+
+          {/* Scanning Line Animation */}
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary-500 animate-scan" />
         </div>
-
-        <ZoomControl
-          zoomLevel={zoomLevel}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          isZoomSupported={isZoomSupported}
-        />
-
-        <div className="absolute bottom-0 inset-x-0 pb-safe">
-          <div className="p-4 flex justify-center space-x-4">
-            {currentConfig.torch && (
-              <button
-                onClick={toggleTorch}
-                className="p-3 bg-white/10 rounded-full backdrop-blur-sm active:bg-white/20 touch-feedback"
-              >
-                <svg
-                  className={`w-6 h-6 ${torchEnabled ? 'text-yellow-400' : 'text-white'}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <BatteryAlert />
       </div>
-    </CameraPermission>
+
+      {/* Controls */}
+      <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/50 to-transparent">
+        <div className="flex justify-center">
+          {isTorchAvailable && (
+            <button
+              onClick={toggleTorch}
+              className={`
+                p-3 rounded-full transition-all duration-200
+                ${isTorchOn 
+                  ? 'bg-white text-gray-900' 
+                  : 'bg-gray-800 text-white'
+                }
+                hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+              `}
+              aria-label={isTorchOn ? "Apagar linterna" : "Encender linterna"}
+            >
+              <LightBulbIcon className="w-6 h-6" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="absolute top-4 left-0 right-0 text-center">
+        <p className="text-white text-sm font-medium px-4 py-2 bg-black/50 rounded-lg inline-block">
+          Coloca el código de barras dentro del marco
+        </p>
+      </div>
+    </div>
   );
 };

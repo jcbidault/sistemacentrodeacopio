@@ -1,104 +1,119 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { 
+  HomeIcon, 
+  QrCodeIcon, 
+  ClipboardDocumentListIcon,
+  Bars3Icon,
+  XMarkIcon
+} from '@heroicons/react/24/outline';
+import { theme } from '../../theme';
 
-export const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+interface NavItem {
+  name: string;
+  path: string;
+  icon: React.ReactNode;
+}
+
+export const Navbar: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+
+  const navItems: NavItem[] = [
+    {
+      name: 'Inicio',
+      path: '/home',
+      icon: <HomeIcon className="w-6 h-6" />,
+    },
+    {
+      name: 'Escáner',
+      path: '/scanner',
+      icon: <QrCodeIcon className="w-6 h-6" />,
+    },
+    {
+      name: 'Inventario',
+      path: '/inventory',
+      icon: <ClipboardDocumentListIcon className="w-6 h-6" />,
+    },
+  ];
 
   const isActive = (path: string) => location.pathname === path;
 
-  const menuItems = [
-    { path: '/', label: 'Inicio' },
-    { path: '/scanner', label: 'Escáner' },
-    { path: '/inventory', label: 'Inventario' },
-  ];
-
   return (
-    <nav className="bg-blue-600 fixed w-full top-0 z-50">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link to="/" className="text-white font-bold text-xl">
-              Centro de Acopio
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <Link to="/" className="flex items-center">
+              <img
+                className="h-8 w-auto"
+                src="/logo.png"
+                alt="Centro de Acopio"
+              />
+              <span className="ml-2 text-xl font-bold text-primary-600">
+                Centro de Acopio
+              </span>
             </Link>
           </div>
 
-          {/* Menú de escritorio */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-4">
-            {menuItems.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive(item.path)
-                    ? 'bg-blue-700 text-white'
-                    : 'text-white hover:bg-blue-700'
-                }`}
+                className={`
+                  px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out
+                  flex items-center space-x-2
+                  ${
+                    isActive(item.path)
+                      ? 'bg-primary-100 text-primary-700'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }
+                `}
               >
-                {item.label}
+                {item.icon}
+                <span>{item.name}</span>
               </Link>
             ))}
           </div>
 
-          {/* Botón de menú móvil */}
-          <div className="md:hidden">
+          {/* Mobile menu button */}
+          <div className="flex items-center md:hidden">
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-blue-700 focus:outline-none"
-              aria-expanded="false"
+              onClick={() => setIsOpen(!isOpen)}
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
             >
-              <span className="sr-only">Abrir menú principal</span>
-              {/* Ícono de menú */}
-              <svg
-                className={`${isMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-              {/* Ícono de cerrar */}
-              <svg
-                className={`${isMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              {isOpen ? (
+                <XMarkIcon className="block h-6 w-6" />
+              ) : (
+                <Bars3Icon className="block h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Menú móvil */}
-      <div className={`${isMenuOpen ? 'block' : 'hidden'} md:hidden`}>
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          {menuItems.map((item) => (
+      {/* Mobile menu */}
+      <div className={`md:hidden ${isOpen ? 'block' : 'hidden'}`}>
+        <div className="px-2 pt-2 pb-3 space-y-1">
+          {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive(item.path)
-                  ? 'bg-blue-700 text-white'
-                  : 'text-white hover:bg-blue-700'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
+              className={`
+                block px-3 py-2 rounded-md text-base font-medium transition-colors duration-150 ease-in-out
+                flex items-center space-x-2
+                ${
+                  isActive(item.path)
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }
+              `}
+              onClick={() => setIsOpen(false)}
             >
-              {item.label}
+              {item.icon}
+              <span>{item.name}</span>
             </Link>
           ))}
         </div>

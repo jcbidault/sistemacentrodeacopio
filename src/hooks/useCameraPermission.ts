@@ -1,55 +1,80 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useHapticFeedback } from './useHapticFeedback';
 
 type PermissionState = 'prompt' | 'granted' | 'denied';
 
 export const useCameraPermission = () => {
-  const [permissionState, setPermissionState] = useState<PermissionState>('prompt');
+  const [permissionState, setPermissionState] = useState<PermissionState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const haptics = useHapticFeedback();
 
-  const checkPermission = async () => {
+  const checkPermission = useCallback(async () => {
     try {
+      // Verificar si el navegador soporta la API de permisos
       if (!navigator.permissions || !navigator.mediaDevices) {
-        setPermissionState('denied');
+        setPermissionState('prompt');
+        setIsLoading(false);
         return;
       }
 
-      const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
-      setPermissionState(permission.state as PermissionState);
+      // En iOS/Safari, necesitamos manejar los permisos de manera diferente
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          stream.getTracks().forEach(track => track.stop());
+          setPermissionState('granted');
+        } catch (error) {
+          setPermissionState('prompt');
+        }
+        setIsLoading(false);
+        return;
+      }
 
-      permission.addEventListener('change', () => {
-        setPermissionState(permission.state as PermissionState);
+      // Para otros navegadores, usar la API de permisos
+      const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+      setPermissionState(result.state);
+      
+      // Escuchar cambios en el estado del permiso
+      result.addEventListener('change', () => {
+        setPermissionState(result.state);
       });
     } catch (error) {
-      console.warn('Error al verificar permisos de cámara:', error);
+      console.error('Error checking camera permission:', error);
       setPermissionState('prompt');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const requestPermission = async () => {
+  const requestPermission = useCallback(async () => {
     try {
       setIsLoading(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment'
+        } 
+      });
+      
+      // Importante: detener el stream después de obtener el permiso
       stream.getTracks().forEach(track => track.stop());
+      
       setPermissionState('granted');
       haptics.success();
       return true;
     } catch (error) {
-      console.error('Error al solicitar permisos de cámara:', error);
+      console.error('Error requesting camera permission:', error);
       setPermissionState('denied');
       haptics.error();
       return false;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkPermission();
-  }, []);
+  }, [checkPermission]);
 
   return {
     permissionState,

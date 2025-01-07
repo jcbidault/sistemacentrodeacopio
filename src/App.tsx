@@ -2,9 +2,11 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
 import { HomePage } from './components/pages/HomePage';
 import { ScannerPage } from './components/scanner/ScannerPage';
+import { InventoryPage } from './components/inventory/InventoryPage';
 import { NetworkStatus } from './components/common/NetworkStatus';
 import { SafeArea } from './components/layout/SafeArea';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
+import LandingPage from './components/landing/LandingPage';
 import './App.css';
 
 function App() {
@@ -20,8 +22,10 @@ function App() {
         
         <main className="pt-16">
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/home" element={<HomePage />} />
             <Route path="/scanner" element={<ScannerPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
           </Routes>
         </main>
 
