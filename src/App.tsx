@@ -8,6 +8,7 @@ import { SafeArea } from './components/layout/SafeArea';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
 import LandingPage from './components/landing/LandingPage';
 import { ProductRegistrationPage } from './pages/ProductRegistrationPage';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
         </main>
 
         <NetworkStatus />
+        <Toaster position="bottom-center" />
       </div>
     </Router>
   );
