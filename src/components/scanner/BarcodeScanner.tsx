@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useZxing } from 'react-zxing';
 import { BarcodeFormat } from '@zxing/library';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
@@ -13,6 +13,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onResult,
   onError,
 }) => {
+  const [isCameraPermissionGranted, setIsCameraPermissionGranted] = useState<boolean | null>(null);
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const haptics = useHapticFeedback();
 
@@ -57,38 +58,65 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   });
 
   useEffect(() => {
-    const configureVideoTrack = async () => {
-      if (ref.current?.srcObject instanceof MediaStream) {
-        const track = ref.current.srcObject.getVideoTracks()[0];
-        if (track) {
-          setVideoTrack(track);
-          
-          try {
-            const capabilities = track.getCapabilities();
-            const settings: MediaTrackConstraints = {};
-
-            if (capabilities.focusMode?.includes('continuous')) {
-              settings.focusMode = 'continuous';
-            }
-
-            if (capabilities.whiteBalanceMode?.includes('continuous')) {
-              settings.whiteBalanceMode = 'continuous';
-            }
-
-            if (capabilities.exposureMode?.includes('continuous')) {
-              settings.exposureMode = 'continuous';
-            }
-
-            if (Object.keys(settings).length > 0) {
-              await track.applyConstraints(settings);
-            }
-          } catch (err) {
-            console.warn('Camera settings could not be applied:', err);
-          }
-        }
+    const requestCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setIsCameraPermissionGranted(true);
+        stream.getTracks().forEach(track => track.stop());
+      } catch (err) {
+        setIsCameraPermissionGranted(false);
+        console.error("Error accessing camera:", err);
       }
     };
 
+    requestCameraPermission();
+  }, []);
+
+  const handleRequestPermission = () => {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        setIsCameraPermissionGranted(true);
+        stream.getTracks().forEach(track => track.stop());
+      })
+      .catch((err) => {
+        setIsCameraPermissionGranted(false);
+        console.error("Error requesting camera permission:", err);
+      });
+  };
+
+  const configureVideoTrack = async () => {
+    if (ref.current?.srcObject instanceof MediaStream) {
+      const track = ref.current.srcObject.getVideoTracks()[0];
+      if (track) {
+        setVideoTrack(track);
+        
+        try {
+          const capabilities = track.getCapabilities();
+          const settings: MediaTrackConstraints = {};
+
+          if (capabilities.focusMode?.includes('continuous')) {
+            settings.focusMode = 'continuous';
+          }
+
+          if (capabilities.whiteBalanceMode?.includes('continuous')) {
+            settings.whiteBalanceMode = 'continuous';
+          }
+
+          if (capabilities.exposureMode?.includes('continuous')) {
+            settings.exposureMode = 'continuous';
+          }
+
+          if (Object.keys(settings).length > 0) {
+            await track.applyConstraints(settings);
+          }
+        } catch (err) {
+          console.warn('Camera settings could not be applied:', err);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
     configureVideoTrack();
 
     return () => {
@@ -106,6 +134,33 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       turnTorchOn();
     }
   }, [isTorchOn, turnTorchOff, turnTorchOn]);
+
+  if (isCameraPermissionGranted === null) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] bg-gray-100 rounded-lg p-4">
+        <p className="text-gray-600 mb-4">Verificando permisos de cámara...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (isCameraPermissionGranted === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] bg-red-50 rounded-lg p-4">
+        <p className="text-red-600 text-center mb-4">
+          Se requiere acceso a la cámara para escanear códigos de barras.
+          <br />
+          Por favor, permite el acceso a la cámara en la configuración de tu navegador.
+        </p>
+        <button
+          onClick={handleRequestPermission}
+          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+        >
+          Solicitar Permiso
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full bg-black">
