@@ -5,7 +5,8 @@ import {
   QrCodeIcon, 
   ClipboardDocumentListIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  PlusCircleIcon
 } from '@heroicons/react/24/outline';
 import { theme } from '../../theme';
 
@@ -34,6 +35,11 @@ export const Navbar: React.FC = () => {
       name: 'Inventario',
       path: '/inventory',
       icon: <ClipboardDocumentListIcon className="w-6 h-6" />,
+    },
+    {
+      name: 'Registrar',
+      path: '/register-product',
+      icon: <PlusCircleIcon className="w-6 h-6" />,
     },
   ];
 

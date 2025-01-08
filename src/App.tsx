@@ -7,6 +7,7 @@ import { NetworkStatus } from './components/common/NetworkStatus';
 import { SafeArea } from './components/layout/SafeArea';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
 import LandingPage from './components/landing/LandingPage';
+import { ProductRegistrationPage } from './pages/ProductRegistrationPage';
 import './App.css';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Route path="/home" element={<HomePage />} />
             <Route path="/scanner" element={<ScannerPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/register-product" element={<ProductRegistrationPage />} />
           </Routes>
         </main>
 
