@@ -3,6 +3,7 @@ import { useZxing } from 'react-zxing';
 import { BarcodeFormat } from '@zxing/library';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
 import { LightBulbIcon } from '@heroicons/react/24/outline';
+import { walmartApi } from '../../services/walmartApi';
 
 interface BarcodeScannerProps {
   onResult: (result: { text: string; format: BarcodeFormat }) => void;
@@ -16,6 +17,12 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [isCameraPermissionGranted, setIsCameraPermissionGranted] = useState<boolean | null>(null);
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const haptics = useHapticFeedback();
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [scanning, setScanning] = useState(true);
+  const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+  const [productInfo, setProductInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleResult = useCallback((result: { getText: () => string; getBarcodeFormat: () => BarcodeFormat }) => {
     haptics.success();
@@ -23,12 +30,33 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       text: result.getText(),
       format: result.getBarcodeFormat()
     });
+    setLastScannedCode(result.getText());
+    searchProduct(result.getText());
   }, [haptics, onResult]);
 
   const handleError = useCallback((error: Error) => {
     console.error('Camera error:', error);
     if (onError) onError(error);
   }, [onError]);
+
+  const searchProduct = async (barcode: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const product = await walmartApi.getProductByUPC(barcode);
+      if (product) {
+        setProductInfo(product);
+        setScanning(false); // Detener el escaneo cuando se encuentra un producto
+      } else {
+        setError('Producto no encontrado');
+      }
+    } catch (err) {
+      setError('Error al buscar el producto');
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const {
     ref,
@@ -130,8 +158,10 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const toggleTorch = useCallback(() => {
     if (isTorchOn) {
       turnTorchOff();
+      setTorchEnabled(false);
     } else {
       turnTorchOn();
+      setTorchEnabled(true);
     }
   }, [isTorchOn, turnTorchOff, turnTorchOn]);
 
@@ -224,6 +254,13 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     };
   }, []);
 
+  const handleReset = () => {
+    setScanning(true);
+    setLastScannedCode(null);
+    setProductInfo(null);
+    setError(null);
+  };
+
   if (isCameraPermissionGranted === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] bg-gray-100 rounded-lg p-4">
@@ -304,6 +341,34 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           Coloca el código de barras dentro del marco
         </p>
       </div>
+
+      {/* Product Info */}
+      {productInfo && (
+        <div className="absolute top-0 left-0 right-0 p-4 bg-white rounded-lg shadow-lg">
+          <h3 className="text-lg font-semibold">{productInfo.name}</h3>
+          {productInfo.thumbnailImage && (
+            <img 
+              src={productInfo.thumbnailImage} 
+              alt={productInfo.name}
+              className="w-full h-48 object-contain"
+            />
+          )}
+          <div className="space-y-2">
+            <p className="text-gray-600">Precio: ${productInfo.salePrice}</p>
+            <p className="text-gray-600">UPC: {productInfo.upc}</p>
+            <p className="text-gray-600">Categoría: {productInfo.categoryPath}</p>
+            {productInfo.shortDescription && (
+              <p className="text-sm text-gray-500">{productInfo.shortDescription}</p>
+            )}
+          </div>
+          <button
+            onClick={handleReset}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Escanear otro código
+          </button>
+        </div>
+      )}
     </div>
   );
 };
