@@ -135,6 +135,47 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   }, [isTorchOn, turnTorchOff, turnTorchOn]);
 
+  useEffect(() => {
+    const requestCameraAccess = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: {
+            facingMode: "environment",
+            width: { min: 1280, ideal: 1920, max: 2560 },
+            height: { min: 720, ideal: 1080, max: 1440 },
+          } 
+        });
+        
+        if (ref.current) {
+          ref.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+        // Si falla, intentar nuevamente después de 1 segundo
+        setTimeout(requestCameraAccess, 1000);
+      }
+    };
+
+    requestCameraAccess();
+
+    const checkInterval = setInterval(() => {
+      navigator.permissions.query({ name: 'camera' as PermissionName })
+        .then(result => {
+          if (result.state === 'denied' || result.state === 'prompt') {
+            requestCameraAccess();
+          }
+        });
+    }, 2000);
+
+    return () => {
+      clearInterval(checkInterval);
+      if (ref.current?.srcObject) {
+        const stream = ref.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [ref]);
+
   if (isCameraPermissionGranted === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] bg-gray-100 rounded-lg p-4">
