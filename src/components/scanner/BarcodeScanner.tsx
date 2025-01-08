@@ -176,6 +176,54 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     };
   }, [ref]);
 
+  const requestCameraPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 },
+        },
+        audio: false
+      });
+      
+      // Detener el stream inmediatamente después de obtener permisos
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (error) {
+      console.error('Error al solicitar permisos de cámara:', error);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    // Solicitar permisos inmediatamente al montar el componente
+    const initializeCamera = async () => {
+      const hasPermission = await requestCameraPermission();
+      if (hasPermission) {
+        // No hacer nada
+      }
+    };
+
+    initializeCamera();
+
+    // Configurar un intervalo para verificar y solicitar permisos periódicamente
+    const permissionInterval = setInterval(async () => {
+      try {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        if (result.state === 'denied' || result.state === 'prompt') {
+          requestCameraPermission();
+        }
+      } catch (error) {
+        console.error('Error al verificar permisos:', error);
+      }
+    }, 2000);
+
+    return () => {
+      clearInterval(permissionInterval);
+    };
+  }, []);
+
   if (isCameraPermissionGranted === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] bg-gray-100 rounded-lg p-4">
