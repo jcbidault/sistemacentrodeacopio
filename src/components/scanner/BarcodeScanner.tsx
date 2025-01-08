@@ -68,11 +68,11 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         width: { min: 640, ideal: 1920, max: 2560 },
         height: { min: 480, ideal: 1080, max: 1440 },
         aspectRatio: { ideal: 16/9 },
-        focusMode: "continuous",
-        zoom: 1.0,
-        brightness: { ideal: 1.0 },
-        contrast: { ideal: 1.0 },
-        exposureMode: "continuous"
+        advanced: [{
+          brightness: { ideal: 1.0 },
+          contrast: { ideal: 1.0 },
+          exposureMode: "continuous"
+        }]
       }
     },
     timeBetweenDecodingAttempts: 100,

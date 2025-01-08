@@ -53,7 +53,6 @@ class ProductService {
   async addProduct(product: Partial<Product>): Promise<Product> {
     this.validateProduct(product);
     
-    // Verificar si ya existe un producto con el mismo código de barras
     if (product.barcode) {
       const existingProduct = await this.findByBarcode(product.barcode);
       if (existingProduct) {
@@ -78,8 +77,8 @@ class ProductService {
     products.push(newProduct);
     await this.saveToStorage(this.PRODUCTS_KEY, products);
 
-    // Registrar el movimiento de alta
     await this.addMovement({
+      id: crypto.randomUUID(),
       productId: newProduct.id,
       type: MovementType.ALTA,
       quantity: newProduct.quantity,
@@ -90,115 +89,11 @@ class ProductService {
     return newProduct;
   }
 
-  async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
-    if (!id?.trim()) {
-      throw new Error('El ID del producto es requerido');
-    }
-
-    this.validateProduct(updates);
-    const products = await this.getAllProducts();
-    const index = products.findIndex(p => p.id === id);
-    
-    if (index === -1) {
-      throw new Error('Producto no encontrado');
-    }
-
-    const updatedProduct = {
-      ...products[index],
-      ...updates,
-      lastUpdated: new Date()
-    };
-
-    products[index] = updatedProduct;
-    await this.saveToStorage(this.PRODUCTS_KEY, products);
-    return updatedProduct;
-  }
-
-  async registerMovement(movement: Omit<ProductMovement, 'id'>): Promise<ProductMovement> {
-    if (!movement.productId?.trim()) {
-      throw new Error('El ID del producto es requerido');
-    }
-    if (movement.quantity <= 0) {
-      throw new Error('La cantidad debe ser mayor a 0');
-    }
-
-    const product = await this.findByBarcode(movement.productId);
-    if (!product) {
-      throw new Error('Producto no encontrado');
-    }
-
-    // Validar stock suficiente para salidas
-    if (movement.type === 'salida' && product.quantity < movement.quantity) {
-      throw new Error('Stock insuficiente para realizar la salida');
-    }
-
-    const movements = await this.getMovements();
-    const newMovement: ProductMovement = {
-      ...movement,
-      id: crypto.randomUUID(),
-      date: new Date()
-    };
-
-    // Actualizar cantidad del producto
-    const newQuantity = this.calculateNewQuantity(product.quantity, movement.quantity, movement.type);
-    await this.updateProduct(product.id, { quantity: newQuantity });
-
-    // Verificar si se alcanzó la cantidad mínima
-    if (product.minQuantity && newQuantity <= product.minQuantity) {
-      console.warn(`Alerta: Producto ${product.name} ha alcanzado su cantidad mínima`);
-      // Aquí se podría implementar un sistema de notificaciones
-    }
-
-    movements.push(newMovement);
-    await this.saveToStorage(this.MOVEMENTS_KEY, movements);
-    return newMovement;
-  }
-
-  private calculateNewQuantity(currentQuantity: number, movementQuantity: number, type: MovementType): number {
-    switch (type) {
-      case 'entrada':
-        return currentQuantity + movementQuantity;
-      case 'salida':
-        return currentQuantity - movementQuantity;
-      case 'ajuste':
-        return movementQuantity;
-      case 'merma':
-        return currentQuantity - movementQuantity;
-      default:
-        throw new Error('Tipo de movimiento no válido');
-    }
-  }
-
-  async registerNewProduct(productData: Omit<Product, 'id' | 'lastUpdated'>): Promise<Product> {
-    this.validateProduct(productData);
-    
-    const existingProduct = await this.findByBarcode(productData.barcode);
-    if (existingProduct) {
-      throw new Error('Ya existe un producto con este código de barras');
-    }
-
-    const product: Product = {
-      ...productData,
-      id: crypto.randomUUID(),
-      lastUpdated: new Date(),
-      quantity: productData.quantity || 0,
-      status: 'active'
-    };
-
-    const products = await this.getAllProducts();
-    products.push(product);
-    await this.saveToStorage(this.PRODUCTS_KEY, products);
-    return product;
-  }
-
   async getMovements(): Promise<ProductMovement[]> {
     return this.getFromStorage<ProductMovement>(this.MOVEMENTS_KEY);
   }
 
   async getProductMovements(productId: string): Promise<ProductMovement[]> {
-    if (!productId?.trim()) {
-      throw new Error('El ID del producto es requerido');
-    }
     const movements = await this.getMovements();
     return movements.filter(m => m.productId === productId);
   }
@@ -206,8 +101,8 @@ class ProductService {
   async addMovement(movement: Omit<ProductMovement, 'id'>): Promise<ProductMovement> {
     const movements = await this.getMovements();
     const newMovement: ProductMovement = {
-      ...movement,
       id: crypto.randomUUID(),
+      ...movement
     };
 
     movements.push(newMovement);
