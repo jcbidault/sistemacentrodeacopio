@@ -65,13 +65,17 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     constraints: {
       video: {
         facingMode: { exact: "environment" },
-        width: { min: 1280, ideal: 1920, max: 2560 },
-        height: { min: 720, ideal: 1080, max: 1440 },
+        width: { min: 640, ideal: 1920, max: 2560 },
+        height: { min: 480, ideal: 1080, max: 1440 },
         aspectRatio: { ideal: 16/9 },
-        focusMode: "continuous"
+        focusMode: "continuous",
+        zoom: 1.0,
+        brightness: { ideal: 1.0 },
+        contrast: { ideal: 1.0 },
+        exposureMode: "continuous"
       }
     },
-    timeBetweenDecodingAttempts: 150,
+    timeBetweenDecodingAttempts: 100,
     formats: [
       BarcodeFormat.QR_CODE,
       BarcodeFormat.EAN_13,
@@ -80,6 +84,9 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       BarcodeFormat.CODE_39,
       BarcodeFormat.UPC_A,
       BarcodeFormat.UPC_E,
+      BarcodeFormat.DATA_MATRIX,
+      BarcodeFormat.PDF_417,
+      BarcodeFormat.AZTEC
     ],
     onResult: handleResult,
     onError: handleError,

@@ -50,24 +50,43 @@ class ProductService {
     return products.find(p => p.barcode === barcode) || null;
   }
 
-  async addProduct(product: Omit<Product, 'id' | 'lastUpdated'>): Promise<Product> {
+  async addProduct(product: Partial<Product>): Promise<Product> {
     this.validateProduct(product);
     
-    const products = await this.getAllProducts();
-    if (products.some(p => p.barcode === product.barcode)) {
-      throw new Error('Ya existe un producto con este código de barras');
+    // Verificar si ya existe un producto con el mismo código de barras
+    if (product.barcode) {
+      const existingProduct = await this.findByBarcode(product.barcode);
+      if (existingProduct) {
+        throw new Error('Ya existe un producto con este código de barras');
+      }
     }
 
+    const products = await this.getAllProducts();
     const newProduct: Product = {
-      ...product,
       id: crypto.randomUUID(),
-      lastUpdated: new Date(),
+      name: product.name!,
+      category: product.category!,
+      barcode: product.barcode || '',
       quantity: product.quantity || 0,
-      status: product.status || 'active'
+      minQuantity: product.minQuantity || 0,
+      description: product.description || '',
+      location: product.location || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-    
+
     products.push(newProduct);
     await this.saveToStorage(this.PRODUCTS_KEY, products);
+
+    // Registrar el movimiento de alta
+    await this.addMovement({
+      productId: newProduct.id,
+      type: MovementType.ALTA,
+      quantity: newProduct.quantity,
+      date: new Date().toISOString(),
+      notes: 'Alta inicial de producto'
+    });
+
     return newProduct;
   }
 
@@ -182,6 +201,18 @@ class ProductService {
     }
     const movements = await this.getMovements();
     return movements.filter(m => m.productId === productId);
+  }
+
+  async addMovement(movement: Omit<ProductMovement, 'id'>): Promise<ProductMovement> {
+    const movements = await this.getMovements();
+    const newMovement: ProductMovement = {
+      ...movement,
+      id: crypto.randomUUID(),
+    };
+
+    movements.push(newMovement);
+    await this.saveToStorage(this.MOVEMENTS_KEY, movements);
+    return newMovement;
   }
 }
 
