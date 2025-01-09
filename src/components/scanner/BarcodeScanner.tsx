@@ -35,11 +35,13 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     constraints: {
       video: {
         facingMode: "environment",
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        aspectRatio: 16/9,
+        frameRate: { ideal: 30 }
       }
     },
-    timeBetweenDecodingAttempts: 150,
+    timeBetweenDecodingAttempts: 300,
     formats: [
       BarcodeFormat.QR_CODE,
       BarcodeFormat.EAN_13,
@@ -49,9 +51,21 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       BarcodeFormat.UPC_A,
       BarcodeFormat.UPC_E,
       BarcodeFormat.DATA_MATRIX,
-      BarcodeFormat.PDF_417,
-      BarcodeFormat.AZTEC
+      BarcodeFormat.ITF,
+      BarcodeFormat.CODABAR
     ],
+    tryHarder: true,
+    hints: {
+      TRY_HARDER: true,
+      ASSUME_GS1: true,
+      CHARACTER_SET: 'UTF-8',
+      POSSIBLE_FORMATS: [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E
+      ]
+    },
     onResult: (result) => {
       haptics.success();
       setScanAttempts(0);
@@ -202,16 +216,23 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       <div className="relative">
         <video
           ref={ref}
-          className="w-full h-64 object-cover rounded-lg bg-black"
+          className="w-full h-[70vh] object-cover rounded-lg bg-black"
           playsInline
           autoPlay
           muted
         />
         
         {/* Guía de escaneo */}
-        <div className="absolute inset-0 border-2 border-dashed border-blue-500 m-8 rounded pointer-events-none">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-48 h-1 bg-blue-500/50 animate-pulse" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-4/5 h-32 border-2 border-dashed border-blue-500 rounded-lg">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full h-0.5 bg-blue-500/50 animate-scan" />
+            </div>
+            {/* Esquinas */}
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-blue-500" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-blue-500" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-blue-500" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-blue-500" />
           </div>
         </div>
 
