@@ -64,18 +64,12 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   } = useZxing({
     constraints: {
       video: {
-        facingMode: { exact: "environment" },
-        width: { min: 640, ideal: 1920, max: 2560 },
-        height: { min: 480, ideal: 1080, max: 1440 },
-        aspectRatio: { ideal: 16/9 },
-        advanced: [{
-          brightness: { ideal: 1.0 },
-          contrast: { ideal: 1.0 },
-          exposureMode: "continuous"
-        }]
+        facingMode: "environment",
+        width: { min: 640, ideal: 1280, max: 1920 },
+        height: { min: 480, ideal: 720, max: 1080 }
       }
     },
-    timeBetweenDecodingAttempts: 100,
+    timeBetweenDecodingAttempts: 150,
     formats: [
       BarcodeFormat.QR_CODE,
       BarcodeFormat.EAN_13,
