@@ -23,6 +23,8 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [productInfo, setProductInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [scanAttempts, setScanAttempts] = useState(0);
 
   const handleResult = useCallback((result: { getText: () => string; getBarcodeFormat: () => BarcodeFormat }) => {
     haptics.success();
@@ -32,10 +34,12 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     });
     setLastScannedCode(result.getText());
     searchProduct(result.getText());
+    setScanAttempts(0);
   }, [haptics, onResult]);
 
   const handleError = useCallback((error: Error) => {
     console.error('Camera error:', error);
+    setScanAttempts(prev => prev + 1);
     if (onError) onError(error);
   }, [onError]);
 
@@ -262,6 +266,35 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     setError(null);
   };
 
+  useEffect(() => {
+    const checkCameraActive = () => {
+      const video = ref.current;
+      if (video) {
+        const isPlaying = video.currentTime > 0 && !video.paused && !video.ended;
+        setIsCameraActive(isPlaying);
+      }
+    };
+
+    const interval = setInterval(checkCameraActive, 1000);
+    return () => clearInterval(interval);
+  }, [ref]);
+
+  const getScanningTip = () => {
+    if (!isCameraActive) {
+      return "Activando cámara...";
+    }
+    if (scanAttempts < 10) {
+      return "Centra el código de barras en el recuadro";
+    }
+    if (scanAttempts < 20) {
+      return "Acerca un poco más el código";
+    }
+    if (scanAttempts < 30) {
+      return "Aleja un poco el código";
+    }
+    return "Asegúrate de que haya buena iluminación";
+  };
+
   if (isCameraPermissionGranted === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] bg-gray-100 rounded-lg p-4">
@@ -339,7 +372,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       {/* Instructions */}
       <div className="absolute top-4 left-0 right-0 text-center">
         <p className="text-white text-sm font-medium px-4 py-2 bg-black/50 rounded-lg inline-block">
-          Coloca el código de barras dentro del marco
+          {getScanningTip()}
         </p>
       </div>
 
